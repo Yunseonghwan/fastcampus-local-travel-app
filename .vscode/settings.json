@@ -1,7 +1,13 @@
 {
+  // 저장 시 자동 포맷팅
+  "editor.formatOnSave": true,
+  // 붙여넣기 시 자동 포맷팅
+  "editor.formatOnPaste": true,
+  // 타이핑 시 자동 포맷팅
+  "editor.formatOnType": true,
+  // ESLint 저장 시 자동 수정
   "editor.codeActionsOnSave": {
-    "source.fixAll": "explicit",
-    "source.organizeImports": "explicit",
-    "source.sortMembers": "explicit"
-  }
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
 }
