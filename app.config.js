@@ -14,7 +14,12 @@ export default {
       buildNumber: "1",
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
-      }
+      },
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+        NSLocationAlwaysUsageDescription: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+      },
     },
     android: {
       adaptiveIcon: {
@@ -39,6 +44,14 @@ export default {
     },
     plugins: [
       "expo-router",
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+          locationAlwaysPermission: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+          locationWhenInUsePermission: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+        },
+      ],
       [
         "expo-splash-screen",
         {
