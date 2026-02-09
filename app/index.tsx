@@ -1,18 +1,22 @@
 import { getPlaceRecommendations, PlaceRecommendationType } from "@/lib/gemini";
 import { Ionicons } from "@expo/vector-icons";
+import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import * as Location from "expo-location";
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Image,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 const LOCATION_INTERVAL = 3000;
-const RECOMMENDATION_INTERVAL = 600000; // 10분
+const RECOMMENDATION_INTERVAL = 6000000; // 100분
 
 // 카테고리 → Ionicons 아이콘 매핑
 const getCategoryIcon = (category: string): keyof typeof Ionicons.glyphMap => {
@@ -102,6 +106,7 @@ const getCategoryIcon = (category: string): keyof typeof Ionicons.glyphMap => {
 };
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
   );
@@ -113,9 +118,42 @@ export default function HomeScreen() {
     success: boolean;
     place: PlaceRecommendationType | null;
   } | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceRecommendationType | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const mapRef = useRef<MapView>(null);
   const locationRef = useRef<Location.LocationObject | null>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ["45%", "80%"], []);
+
+  // 마커 탭 시 BottomSheet 열기
+  const handleMarkerPress = useCallback((place: PlaceRecommendationType) => {
+    setSelectedPlace(place);
+    bottomSheetRef.current?.snapToIndex(0);
+  }, []);
+
+  // BottomSheet 닫기
+  const handleSheetChange = useCallback((index: number) => {
+    if (index === -1) {
+      setSelectedPlace(null);
+    }
+  }, []);
+
+  // 별점 렌더링
+  const renderStars = useCallback((rating: number) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalf = rating - fullStars >= 0.5;
+    for (let i = 0; i < 5; i++) {
+      if (i < fullStars) {
+        stars.push(<Ionicons key={i} name="star" size={18} color="#FFB800" />);
+      } else if (i === fullStars && hasHalf) {
+        stars.push(<Ionicons key={i} name="star-half" size={18} color="#FFB800" />);
+      } else {
+        stars.push(<Ionicons key={i} name="star-outline" size={18} color="#CCC" />);
+      }
+    }
+    return stars;
+  }, []);
 
   // 위치 갱신 시 ref도 함께 업데이트
   useEffect(() => {
@@ -168,7 +206,6 @@ export default function HomeScreen() {
     let recommendationIntervalId: ReturnType<typeof setInterval>;
 
     const fetchRecommendation = async () => {
-      console.log("hasLocation", "asdadsd");
       const loc = locationRef.current;
       if (!loc) return;
 
@@ -265,8 +302,7 @@ export default function HomeScreen() {
               latitude: place.latitude,
               longitude: place.longitude,
             }}
-            title={place.name}
-            description={place.description}
+            onPress={() => handleMarkerPress(place)}
           >
             <View style={styles.recommendMarker}>
               <View style={styles.recommendMarkerIcon}>
@@ -327,6 +363,88 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
       )}
+
+      {/* 추천 장소 BottomSheet */}
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={snapPoints}
+        enablePanDownToClose
+        onChange={handleSheetChange}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+      >
+        {selectedPlace && (
+          <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
+            {/* 상단 이미지 */}
+            <View style={styles.sheetImageContainer}>
+              {selectedPlace.image_url ? (
+                <Image
+                  source={{ uri: selectedPlace.image_url }}
+                  style={styles.sheetImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.sheetImagePlaceholder}>
+                  <Ionicons
+                    name={getCategoryIcon(selectedPlace.category)}
+                    size={48}
+                    color="#999"
+                  />
+                </View>
+              )}
+              {/* 카테고리 뱃지 */}
+              <View style={styles.categoryBadge}>
+                <Ionicons
+                  name={getCategoryIcon(selectedPlace.category)}
+                  size={14}
+                  color="#fff"
+                />
+                <Text style={styles.categoryBadgeText}>
+                  {selectedPlace.category}
+                </Text>
+              </View>
+            </View>
+
+            {/* 장소명 */}
+            <Text style={styles.sheetPlaceName}>{selectedPlace.name}</Text>
+
+            {/* 별점 */}
+            <View style={styles.ratingRow}>
+              <View style={styles.starsRow}>
+                {renderStars(selectedPlace.rating)}
+              </View>
+              <Text style={styles.ratingText}>
+                {selectedPlace.rating.toFixed(1)}
+              </Text>
+            </View>
+
+            {/* 설명 */}
+            <Text style={styles.sheetDescription}>
+              {selectedPlace.description}
+            </Text>
+
+            {/* 구분선 */}
+            <View style={styles.divider} />
+
+            {/* 메모 페이지 이동 버튼 */}
+            <TouchableOpacity
+              style={styles.memoButton}
+              onPress={() => {
+                bottomSheetRef.current?.close();
+                router.push({
+                  pathname: "/memo",
+                  params: { placeName: selectedPlace.name },
+                });
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={20} color="#fff" />
+              <Text style={styles.memoButtonText}>이 장소에 메모 남기기</Text>
+            </TouchableOpacity>
+          </BottomSheetScrollView>
+        )}
+      </BottomSheet>
     </View>
   );
 }
@@ -423,6 +541,108 @@ const styles = StyleSheet.create({
   recommendMarkerName: {
     color: "#fff",
     fontSize: 11,
+    fontWeight: "700",
+  },
+  // BottomSheet 스타일
+  sheetBackground: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  sheetHandle: {
+    backgroundColor: "#DADADA",
+    width: 40,
+  },
+  sheetContent: {
+    paddingBottom: 40,
+  },
+  sheetImageContainer: {
+    position: "relative",
+    height: 200,
+    backgroundColor: "#f0f0f0",
+  },
+  sheetImage: {
+    width: "100%",
+    height: "100%",
+  },
+  sheetImagePlaceholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ECECEC",
+  },
+  categoryBadge: {
+    position: "absolute",
+    bottom: 12,
+    left: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(220, 53, 69, 0.9)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    gap: 4,
+  },
+  categoryBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  sheetPlaceName: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#1A1A1A",
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 8,
+    gap: 6,
+  },
+  starsRow: {
+    flexDirection: "row",
+    gap: 2,
+  },
+  ratingText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFB800",
+    marginLeft: 4,
+  },
+  sheetDescription: {
+    fontSize: 15,
+    color: "#555",
+    lineHeight: 22,
+    paddingHorizontal: 20,
+    marginTop: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#EFEFEF",
+    marginHorizontal: 20,
+    marginVertical: 20,
+  },
+  memoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#007AFF",
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+  },
+  memoButtonText: {
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "700",
   },
 });

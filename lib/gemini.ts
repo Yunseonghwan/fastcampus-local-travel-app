@@ -34,7 +34,7 @@ export const getPlaceRecommendations = async (
     "longitude": 장소 경도,
     "rating": 장소 평점,
     "image_url": 장소 이미지 URL
-    (예시: "image_url": "https://example.com/image.jpg")
+    (예시: "image_url": "https://images.insplash.com/photo-...형식")
     }
     `;
   try {

@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef } from 'react';
 import { Alert, AppState, Linking } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -74,13 +75,15 @@ export default function RootLayout() {
   }, [checkAndRequestPermission, checkPermissionStatus]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown:false }} />
-        <Stack.Screen name="place/[id]" options={{ title: '장소 상세' }} />
-        <Stack.Screen name="memo" options={{ title: '메모 작성' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown:false }} />
+          <Stack.Screen name="place/[id]" options={{ title: '장소 상세' }} />
+          <Stack.Screen name="memo" options={{ title: '메모 작성' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
