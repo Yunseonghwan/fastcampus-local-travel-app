@@ -3,6 +3,7 @@ import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { getPlaceRecommendations } from '@/lib/gemini';
 
 const LOCATION_INTERVAL = 3000;
 
@@ -22,6 +23,13 @@ export default function HomeScreen() {
       // 최초 위치 가져오기
       const currentLocation = await Location.getCurrentPositionAsync({});
       setLocation(currentLocation);
+
+      // 최초 접속 시 장소 추천 조회
+      const recommendation = await getPlaceRecommendations(
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude,
+      );
+      console.log('장소 추천 결과:', recommendation);
 
       // 3초 간격으로 위치 갱신
       intervalId = setInterval(async () => {
