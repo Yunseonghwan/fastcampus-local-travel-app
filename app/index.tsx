@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,7 +16,6 @@ import {
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
-const LOCATION_INTERVAL = 3000;
 const RECOMMENDATION_INTERVAL = 6000000; // 100분
 
 // 카테고리 → Ionicons 아이콘 매핑
@@ -118,7 +118,8 @@ export default function HomeScreen() {
     success: boolean;
     place: PlaceRecommendationType | null;
   } | null>(null);
-  const [selectedPlace, setSelectedPlace] = useState<PlaceRecommendationType | null>(null);
+  const [selectedPlace, setSelectedPlace] =
+    useState<PlaceRecommendationType | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const mapRef = useRef<MapView>(null);
   const locationRef = useRef<Location.LocationObject | null>(null);
@@ -147,13 +148,19 @@ export default function HomeScreen() {
       if (i < fullStars) {
         stars.push(<Ionicons key={i} name="star" size={18} color="#FFB800" />);
       } else if (i === fullStars && hasHalf) {
-        stars.push(<Ionicons key={i} name="star-half" size={18} color="#FFB800" />);
+        stars.push(
+          <Ionicons key={i} name="star-half" size={18} color="#FFB800" />,
+        );
       } else {
-        stars.push(<Ionicons key={i} name="star-outline" size={18} color="#CCC" />);
+        stars.push(
+          <Ionicons key={i} name="star-outline" size={18} color="#CCC" />,
+        );
       }
     }
     return stars;
   }, []);
+
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // 위치 갱신 시 ref도 함께 업데이트
   useEffect(() => {
@@ -163,36 +170,78 @@ export default function HomeScreen() {
   // 위치 추적
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
+    let isMounted = true;
 
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          if (isMounted) setLocationError("위치 권한이 거부되었습니다.");
+          return;
+        }
+
+        // 1단계: getLastKnownPositionAsync로 빠른 초기 위치 확보 (Android에서 중요)
+        try {
+          const lastKnown = await Location.getLastKnownPositionAsync();
+          if (lastKnown && isMounted && !locationRef.current) {
+            setLocation(lastKnown);
+          }
+        } catch {
+          // lastKnown 실패는 무시하고 진행
+        }
+
+        // 2단계: getCurrentPositionAsync로 정확한 위치 확보
+        try {
+          const currentLocation = await Location.getCurrentPositionAsync({
+            accuracy:
+              Platform.OS === "android"
+                ? Location.Accuracy.Balanced
+                : Location.Accuracy.High,
+          });
+          if (isMounted) {
+            setLocation(currentLocation);
+          }
+        } catch (e) {
+          console.warn("getCurrentPositionAsync 실패:", e);
+        }
+
+        // 3단계: 3초 간격으로 위치 갱신
+        intervalId = setInterval(async () => {
+          try {
+            const newLocation = await Location.getCurrentPositionAsync({
+              accuracy:
+                Platform.OS === "android"
+                  ? Location.Accuracy.Balanced
+                  : Location.Accuracy.High,
+            });
+            if (!isMounted) return;
+            setLocation(newLocation);
+
+            // 지도 중앙을 내 위치로 이동
+            mapRef.current?.animateToRegion(
+              {
+                latitude: newLocation.coords.latitude,
+                longitude: newLocation.coords.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              },
+              500,
+            );
+          } catch (e) {
+            console.warn("위치 갱신 실패:", e);
+          }
+        }, 3000);
+      } catch (e) {
+        console.error("위치 추적 초기화 실패:", e);
+        if (isMounted)
+          setLocationError(
+            "위치를 가져올 수 없습니다. 위치 서비스를 확인해주세요.",
+          );
       }
-
-      // 최초 위치 가져오기
-      const currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation);
-
-      // 3초 간격으로 위치 갱신
-      intervalId = setInterval(async () => {
-        const newLocation = await Location.getCurrentPositionAsync({});
-        setLocation(newLocation);
-
-        // 지도 중앙을 내 위치로 이동
-        mapRef.current?.animateToRegion(
-          {
-            latitude: newLocation.coords.latitude,
-            longitude: newLocation.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          },
-          500,
-        );
-      }, LOCATION_INTERVAL);
     })();
 
     return () => {
+      isMounted = false;
       if (intervalId) clearInterval(intervalId);
     };
   }, []);
@@ -266,7 +315,44 @@ export default function HomeScreen() {
   if (!location) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" />
+        {locationError ? (
+          <>
+            <Ionicons name="location-outline" size={48} color="#999" />
+            <Text style={styles.errorText}>{locationError}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                setLocationError(null);
+                // 권한 재요청을 트리거하기 위해 컴포넌트를 다시 마운트
+                Location.requestForegroundPermissionsAsync().then(
+                  ({ status }) => {
+                    if (status === "granted") {
+                      Location.getCurrentPositionAsync({
+                        accuracy:
+                          Platform.OS === "android"
+                            ? Location.Accuracy.Balanced
+                            : Location.Accuracy.High,
+                      })
+                        .then(setLocation)
+                        .catch(() => {
+                          setLocationError("위치를 가져올 수 없습니다.");
+                        });
+                    } else {
+                      setLocationError("위치 권한이 거부되었습니다.");
+                    }
+                  },
+                );
+              }}
+            >
+              <Text style={styles.retryButtonText}>다시 시도</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <ActivityIndicator size="large" />
+            <Text style={styles.loadingText}>위치를 찾고 있습니다...</Text>
+          </>
+        )}
       </View>
     );
   }
@@ -276,13 +362,15 @@ export default function HomeScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
         initialRegion={{
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
+        showsUserLocation={Platform.OS === "android"}
+        showsMyLocationButton={Platform.OS === "android"}
       >
         <Marker
           coordinate={{
@@ -461,6 +549,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 15,
+    color: "#888",
+    marginTop: 4,
+  },
+  errorText: {
+    fontSize: 15,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 8,
+    paddingHorizontal: 40,
+    lineHeight: 22,
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
   },
   recommendingOverlay: {
     position: "absolute",
