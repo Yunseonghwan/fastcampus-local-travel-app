@@ -8,10 +8,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useNotifications } from '@/hooks/use-notifications';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const appState = useRef(AppState.currentState);
+
+  // 앱 시작 시 알림 권한 요청 및 리스너 등록
+  useNotifications();
 
   const showPermissionAlert = useCallback(() => {
     Alert.alert(
