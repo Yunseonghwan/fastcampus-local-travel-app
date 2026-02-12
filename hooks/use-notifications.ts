@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import type { EventSubscription } from "expo-modules-core";
 import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -170,12 +171,14 @@ export function useNotifications() {
     // 포그라운드 알림 수신 리스너
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         console.log("알림 수신:", notification);
       });
 
     // 알림 탭 리스너
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         console.log("알림 탭:", response);
       });
 
