@@ -1,6 +1,7 @@
 import { generateHashTags } from "@/lib/gemini";
 import { useMemoStore } from "@/store/memo-store";
 import { Ionicons } from "@expo/vector-icons";
+import * as Sentry from "@sentry/react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -34,6 +35,7 @@ export default function MemoScreen() {
 
   const handleGenerateHashtags = async () => {
     if (!content.trim()) {
+      Sentry.captureException(new Error("메모 내용을 먼저 입력해주세요."));
       Alert.alert("알림", "메모 내용을 먼저 입력해주세요.");
       return;
     }
