@@ -8,6 +8,11 @@ export default {
     scheme: "localtravelapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+    extra: {
+      eas: {
+        projectId: "694ebb0b-425d-4588-98ff-7c85a7855c0f",
+      },
+    },
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.seonghwanyun.localtravelapp",
