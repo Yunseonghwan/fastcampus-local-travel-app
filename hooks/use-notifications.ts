@@ -115,7 +115,7 @@ export function useNotifications() {
           BACKGROUND_MESSAGES[
             Math.floor(Math.random() * BACKGROUND_MESSAGES.length)
           ];
-        const googleMapUrl = "https://www.google.com/map/search/nearby";
+        const googleMapUrl = "https://www.google.com/maps/search/nearby";
         const deepLinkUrl = Linking.createURL("/webview", {
           queryParams: {
             url: googleMapUrl,

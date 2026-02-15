@@ -9,6 +9,7 @@ import {
   Animated,
   Image,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -494,8 +495,24 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* 장소명 */}
-            <Text style={styles.sheetPlaceName}>{selectedPlace.name}</Text>
+            {/* 장소명 (탭하면 웹뷰로 이동) */}
+            <Pressable
+              onPress={() => {
+                bottomSheetRef.current?.close();
+                router.push({
+                  pathname: "/webview",
+                  params: {
+                    title: selectedPlace.name,
+                    url: `https://www.google.com/search?q=${encodeURIComponent(selectedPlace.name)}`,
+                  },
+                });
+              }}
+            >
+              <View style={styles.sheetPlaceNameRow}>
+                <Text style={styles.sheetPlaceName}>{selectedPlace.name}</Text>
+                <Ionicons name="open-outline" size={18} color="#007AFF" />
+              </View>
+            </Pressable>
 
             {/* 별점 */}
             <View style={styles.ratingRow}>
@@ -707,12 +724,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  sheetPlaceNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 16,
+    gap: 6,
+  },
   sheetPlaceName: {
     fontSize: 22,
     fontWeight: "800",
     color: "#1A1A1A",
-    paddingHorizontal: 20,
-    marginTop: 16,
+    flexShrink: 1,
   },
   ratingRow: {
     flexDirection: "row",
