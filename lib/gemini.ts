@@ -54,3 +54,34 @@ export const getPlaceRecommendations = async (
     return null;
   }
 };
+
+export const generateHashTags = async (
+  memoContent: string,
+  placeName: string,
+): Promise<string[] | null> => {
+  const prompt = `다음은 "${placeName}" 장소에 대한 사용자 메모입니다: ${memoContent}
+  이 메모 내용을 분속하여 핵심 키도르를 해시태그로 변환해 주세요.
+  - 3~5개의 해시태그를 생성해주세요
+  - 장소 특성, 감정, 분위기, 음식, 활동 들을 포함해주세요
+  - 한국어로 작성해주세요
+  - #을 폼한한 형대로 작성해주세요
+  다음 JSON 배열 형식으로만 응답해주세요(다른 텍스트 없이):
+  ['#해시태그1', '#해시태그2', '#해시태그3']
+  `;
+  try {
+    const response = await genAI.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const text = response.text || "";
+    const jsonMatch = text.match(/\{[\s\S]*\}/) || [];
+    if (jsonMatch) {
+      const hashTags = JSON.parse(jsonMatch[0] || "") as string[];
+      return hashTags.map((tag) => (tag.startsWith("#") ? tag : `#${tag}`));
+    }
+    return [];
+  } catch (error) {
+    console.error("해시태그 생성 실패:", error);
+    return [];
+  }
+};
