@@ -94,6 +94,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="place/[id]" options={{ title: "장소 상세" }} />
           <Stack.Screen name="memo" options={{ title: "메모 작성" }} />
+          <Stack.Screen name="webview" options={{ title: "상세 정보" }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

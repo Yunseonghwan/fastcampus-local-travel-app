@@ -1,8 +1,9 @@
 import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
 import type { EventSubscription } from "expo-modules-core";
 import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, AppState, Linking, Platform } from "react-native";
+import { Alert, AppState, Platform, Linking as RNLinking } from "react-native";
 
 // 포그라운드에서 알림을 표시하기 위한 핸들러
 Notifications.setNotificationHandler({
@@ -29,7 +30,7 @@ const BACKGROUND_MESSAGES = [
 /** 백그라운드 알림 최대 예약 개수 (20초 × 50개 = ~16분) */
 const BACKGROUND_NOTIFICATION_COUNT = 50;
 /** 백그라운드 알림 간격 (초) */
-const BACKGROUND_NOTIFICATION_INTERVAL = 6000;
+const BACKGROUND_NOTIFICATION_INTERVAL = 20;
 
 export function useNotifications() {
   const [permissionGranted, setPermissionGranted] = useState<boolean>(false);
@@ -45,7 +46,7 @@ export function useNotifications() {
       "장소 추천 알림을 받기 위해 알림 권한이 필요합니다. 설정에서 알림 권한을 허용해주세요.",
       [
         { text: "나중에", style: "cancel" },
-        { text: "설정으로 이동", onPress: () => Linking.openSettings() },
+        { text: "설정으로 이동", onPress: () => RNLinking.openSettings() },
       ],
     );
   }, []);
@@ -114,12 +115,23 @@ export function useNotifications() {
           BACKGROUND_MESSAGES[
             Math.floor(Math.random() * BACKGROUND_MESSAGES.length)
           ];
+        const googleMapUrl = "https://www.google.com/map/search/nearby";
+        const deepLinkUrl = Linking.createURL("/webview", {
+          queryParams: {
+            url: googleMapUrl,
+            title: "주변 장소 탐색",
+          },
+        });
 
         await Notifications.scheduleNotificationAsync({
           content: {
             title: "📍 주변 장소 알림",
             body: message,
             sound: true,
+            data: {
+              type: "background_recommendation",
+              deepLinkUrl,
+            },
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -180,6 +192,10 @@ export function useNotifications() {
       Notifications.addNotificationResponseReceivedListener((response) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         console.log("알림 탭:", response);
+        const data = response.notification.request.content.data;
+        if (data?.deepLinkUrl) {
+          Linking.openURL(data.deepLinkUrl as string);
+        }
       });
 
     // 앱 상태 변화 감지 (백그라운드 ↔ 포그라운드)
