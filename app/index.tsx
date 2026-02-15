@@ -1,8 +1,9 @@
 import { getPlaceRecommendations, PlaceRecommendationType } from "@/lib/gemini";
+import { useMemoStore } from "@/store/memo-store";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -108,6 +109,7 @@ const getCategoryIcon = (category: string): keyof typeof Ionicons.glyphMap => {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const memos = useMemoStore((s) => s.memos);
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
   );
@@ -126,6 +128,22 @@ export default function HomeScreen() {
   const locationRef = useRef<Location.LocationObject | null>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ["45%", "80%"], []);
+  const pendingPlaceRef = useRef<PlaceRecommendationType | null>(null);
+
+  // 메모 페이지에서 돌아왔을 때 바텀시트 다시 열기
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingPlaceRef.current) {
+        const place = pendingPlaceRef.current;
+        pendingPlaceRef.current = null;
+        // 약간의 딜레이를 줘야 시트가 제대로 열림
+        setTimeout(() => {
+          setSelectedPlace(place);
+          bottomSheetRef.current?.snapToIndex(0);
+        }, 300);
+      }
+    }, []),
+  );
 
   // 마커 탭 시 BottomSheet 열기
   const handleMarkerPress = useCallback((place: PlaceRecommendationType) => {
@@ -524,6 +542,17 @@ export default function HomeScreen() {
               </Text>
             </View>
 
+            {/* 해시태그 (메모에 저장된 경우 표시) */}
+            {memos[selectedPlace.name]?.hashtags?.length > 0 && (
+              <View style={styles.sheetHashtagList}>
+                {memos[selectedPlace.name].hashtags.map((tag, i) => (
+                  <View key={`${tag}-${i}`} style={styles.sheetHashtagChip}>
+                    <Text style={styles.sheetHashtagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* 설명 */}
             <Text style={styles.sheetDescription}>
               {selectedPlace.description}
@@ -536,6 +565,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.memoButton}
               onPress={() => {
+                pendingPlaceRef.current = selectedPlace;
                 bottomSheetRef.current?.close();
                 router.push({
                   pathname: "/memo",
@@ -753,6 +783,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFB800",
     marginLeft: 4,
+  },
+  sheetHashtagList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    paddingHorizontal: 20,
+    marginTop: 12,
+  },
+  sheetHashtagChip: {
+    backgroundColor: "#E0F0FF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  sheetHashtagText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0066CC",
   },
   sheetDescription: {
     fontSize: 15,
