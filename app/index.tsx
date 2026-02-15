@@ -1,5 +1,7 @@
 import { getPlaceRecommendations, PlaceRecommendationType } from "@/lib/gemini";
+import { useRewardedAd } from "@/hooks/use-rewarded-ad";
 import { useMemoStore } from "@/store/memo-store";
+import { useRecommendationStore } from "@/store/recommendation-store";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import * as Location from "expo-location";
@@ -7,6 +9,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Image,
   Platform,
@@ -110,6 +113,9 @@ const getCategoryIcon = (category: string): keyof typeof Ionicons.glyphMap => {
 export default function HomeScreen() {
   const router = useRouter();
   const memos = useMemoStore((s) => s.memos);
+  const { canRecommendFree, incrementCount, resetIfNewDay } =
+    useRecommendationStore();
+  const { showAd } = useRewardedAd();
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
   );
@@ -265,31 +271,29 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // 1분 간격 장소 추천
-  const hasLocation = location !== null;
+  // 중복 호출 방지 가드
+  const isRecommendingRef = useRef(false);
+  const isAlertShowingRef = useRef(false);
 
-  useEffect(() => {
-    if (!hasLocation) return;
+  // 장소 추천 실행 (실제 API 호출)
+  const executeRecommendation = useCallback(async () => {
+    const loc = locationRef.current;
+    if (!loc || isRecommendingRef.current) return;
 
-    let recommendationIntervalId: ReturnType<typeof setInterval>;
+    isRecommendingRef.current = true;
+    setIsRecommending(true);
+    setRecommendationResult(null);
 
-    const fetchRecommendation = async () => {
-      const loc = locationRef.current;
-      if (!loc) return;
-
-      setIsRecommending(true);
-      setRecommendationResult(null);
-
+    try {
       const recommendation = await getPlaceRecommendations(
         loc.coords.latitude,
         loc.coords.longitude,
       );
       console.log("장소 추천 결과:", recommendation);
 
-      setIsRecommending(false);
-
-      // 추천 성공 시 장소 목록에 추가 (중복 방지)
+      // 추천 성공 시 횟수 증가 + 장소 목록에 추가
       if (recommendation) {
+        incrementCount();
         setRecommendedPlaces((prev) => {
           const exists = prev.some((p) => p.name === recommendation.name);
           return exists ? prev : [...prev, recommendation];
@@ -317,19 +321,82 @@ export default function HomeScreen() {
       ]).start(() => {
         setRecommendationResult(null);
       });
+    } finally {
+      setIsRecommending(false);
+      isRecommendingRef.current = false;
+    }
+  }, [incrementCount, toastOpacity]);
+
+  // ref로 최신 함수 참조를 유지 (interval에서 stale closure 방지)
+  const executeRecommendationRef = useRef(executeRecommendation);
+  useEffect(() => {
+    executeRecommendationRef.current = executeRecommendation;
+  }, [executeRecommendation]);
+
+  const showAdRef = useRef(showAd);
+  useEffect(() => {
+    showAdRef.current = showAd;
+  }, [showAd]);
+
+  // 일정 간격 장소 추천 (ref 기반으로 interval 재생성 방지)
+  const hasLocation = location !== null;
+
+  useEffect(() => {
+    if (!hasLocation) return;
+
+    const fetchRecommendation = () => {
+      // 이미 추천 중이거나 알럿이 떠있으면 스킵
+      if (isRecommendingRef.current || isAlertShowingRef.current) return;
+
+      resetIfNewDay();
+
+      if (canRecommendFree()) {
+        executeRecommendationRef.current();
+      } else {
+        isAlertShowingRef.current = true;
+        Alert.alert(
+          "일일 추천 횟수 초과",
+          "오늘의 무료 추천 횟수(2회)를 모두 사용했습니다.\n광고를 통해 추천을 더 받으시겠습니까?",
+          [
+            {
+              text: "아니오",
+              style: "cancel",
+              onPress: () => {
+                isAlertShowingRef.current = false;
+              },
+            },
+            {
+              text: "예",
+              onPress: () => {
+                isAlertShowingRef.current = false;
+                const shown = showAdRef.current(() => {
+                  executeRecommendationRef.current();
+                });
+
+                if (!shown) {
+                  Alert.alert(
+                    "광고 준비 중",
+                    "광고가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.",
+                  );
+                }
+              },
+            },
+          ],
+        );
+      }
     };
 
-    // 최초 위치가 잡히면 바로 추천 + 1분 간격 반복
+    // 최초 위치가 잡히면 바로 추천 + 일정 간격 반복
     fetchRecommendation();
-    recommendationIntervalId = setInterval(
+    const recommendationIntervalId = setInterval(
       fetchRecommendation,
       RECOMMENDATION_INTERVAL,
     );
 
     return () => {
-      if (recommendationIntervalId) clearInterval(recommendationIntervalId);
+      clearInterval(recommendationIntervalId);
     };
-  }, [hasLocation, toastOpacity]);
+  }, [hasLocation, resetIfNewDay, canRecommendFree]);
 
   if (!location) {
     return (

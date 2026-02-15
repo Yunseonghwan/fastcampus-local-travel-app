@@ -16,10 +16,14 @@ export default {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       },
       infoPlist: {
-        NSLocationWhenInUseUsageDescription: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
-        NSLocationAlwaysAndWhenInUseUsageDescription: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
-        NSLocationAlwaysUsageDescription: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
-        NSUserNotificationsUsageDescription: "주변 장소 추천 알림을 보내기 위해 알림 권한이 필요합니다.",
+        NSLocationWhenInUseUsageDescription:
+          "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+        NSLocationAlwaysUsageDescription:
+          "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+        NSUserNotificationsUsageDescription:
+          "주변 장소 추천 알림을 보내기 위해 알림 권한이 필요합니다.",
       },
     },
     android: {
@@ -36,8 +40,8 @@ export default {
       config: {
         googleMaps: {
           apiKey: process.env.GOOGLE_MAPS_API_KEY,
-        }
-      }
+        },
+      },
     },
     web: {
       output: "static",
@@ -45,6 +49,13 @@ export default {
     },
     plugins: [
       "expo-router",
+      [
+        "react-native-google-mobile-ads",
+        {
+          androidAppId: "ca-app-pub-2294115142251204~5052528349",
+          iosAppId: "ca-app-pub-2294115142251204~5052528349",
+        },
+      ],
       [
         "expo-notifications",
         {
@@ -56,9 +67,12 @@ export default {
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
-          locationAlwaysPermission: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
-          locationWhenInUsePermission: "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+          locationAlwaysAndWhenInUsePermission:
+            "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+          locationAlwaysPermission:
+            "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
+          locationWhenInUsePermission:
+            "앱에서 주변 장소를 찾기 위해 위치 정보를 사용합니다.",
         },
       ],
       [
